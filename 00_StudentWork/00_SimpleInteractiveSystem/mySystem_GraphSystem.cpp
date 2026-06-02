@@ -238,7 +238,7 @@ void GRAPH_SYSTEM::createNet_Square( int n, int num_layers )
     float r = 5; // radius
     float d = 5; // layer distance 
     float offset_x = 50.;
-    float offset_z = 100.;
+    float offset_z = 90.;
     //
     // modify and add your code heres
     //
@@ -546,14 +546,16 @@ void GRAPH_SYSTEM::resetDepthOfAllNodes()
 
     int numNodes = getNumOfNodes();
     for (int i = 0; i < numNodes; ++i) {
-        //int nodeID = mActiveNodeArr[i];
-        //GRAPH_NODE* n = &mNodeArr_Pool[nodeID];
+        int nodeID = mActiveNodeArr[i];
+        GRAPH_NODE* n = &mNodeArr_Pool[nodeID];
         //
         // modify and add your code heres
         // 
         // set node's depth
         // and others if necessary
         //
+        n->depth = 10001;
+        n->visited = false;
     }
 }
 
@@ -593,12 +595,19 @@ void GRAPH_SYSTEM::computeDepthOfAllNodesFromSelectedNode(GRAPH_NODE* node, int 
         // update the current node's depth
         // recursively update all the nodes connected to the current node
         //     
-    //for (int i = 0; i < node->edgeID.size(); ++i) {
+    for (int i = 0; i < node->edgeID.size(); ++i) {
         //
         // modify and add your code heres
         // 
-        
-    //}
+        int edgeID = node->edgeID[i];
+        GRAPH_EDGE *e = &mEdgeArr_Pool[edgeID];
+        GRAPH_NODE *n1 = &mNodeArr_Pool[e->nodeID[0]];
+        GRAPH_NODE *n2 = &mNodeArr_Pool[e->nodeID[1]];
+        GRAPH_NODE* next_node = (node == n1) ? n2 : n1;
+        if (next_node->depth > depth + 1) {
+            computeDepthOfAllNodesFromSelectedNode(next_node, depth + 1);
+        }
+    }
 }
 
 void GRAPH_SYSTEM::computeDepthOfAllNodesFromSelectedNode()
@@ -610,11 +619,14 @@ void GRAPH_SYSTEM::computeDepthOfAllNodesFromSelectedNode()
     // invoke computeDepthOfAllNodesFromSelectedNode
     // finally, determine the mMaxNodeDepth
     // 
-    
+    resetDepthOfAllNodes();
+    if (mSelectedNode == 0) { return; }
+    mMaxNodeDepth = 0;
+    mSelectedNode->depth = 0;
     //
     // modify and add your code heres
     //
-
+    computeDepthOfAllNodesFromSelectedNode(mSelectedNode, 0);
 
     // Determine the mMaxNodeDepth
     int numNodes = getNumOfNodes();
@@ -622,6 +634,11 @@ void GRAPH_SYSTEM::computeDepthOfAllNodesFromSelectedNode()
         //
         // modify and add your code heres
         //
+        int nodeID = mActiveNodeArr[i];
+        GRAPH_NODE* n = &mNodeArr_Pool[nodeID];
+        if (n->depth != 10001 && n->depth > mMaxNodeDepth) {
+            mMaxNodeDepth = n->depth;
+        }
     }
 }
 
@@ -649,7 +666,9 @@ void GRAPH_SYSTEM::resetPathInformationOfAllNodes()
         // modify and add your code heres
         //
         // set path cost of node
+        n->path_cost = 123123123;
         // set path_parent of node
+        n->path_parent = nullptr;
     }
 }
 
@@ -668,8 +687,14 @@ void GRAPH_SYSTEM::computeShortestPath(GRAPH_NODE *node)
         // modify and add your code heres
         //
         // get an edge
+        int edgeID = node->edgeID[i];
+        GRAPH_EDGE* e = &mEdgeArr_Pool[edgeID];
         // determine the next node. Set it as the current node.
+        GRAPH_NODE* n1 = &mNodeArr_Pool[e->nodeID[0]];
+        GRAPH_NODE* n2 = &mNodeArr_Pool[e->nodeID[1]];
+        GRAPH_NODE* next_node = (node == n1) ? n2 : n1;
         // compute distance d: node->p.distance(next->p);
+        double d = node->p.distance(next_node->p);
         // if new path cost is not better, check for the other edges
         // if new path cost is better, update the node's path cost and path_parent
         // Also, invokte computeShortestPath for the current node.
@@ -681,6 +706,11 @@ void GRAPH_SYSTEM::computeShortestPath(GRAPH_NODE *node)
         //
         // modify and add your code heres
         //
+        if (node->path_cost + d < next_node->path_cost) {
+            next_node->path_cost = node->path_cost + d;
+            next_node->path_parent = node;
+            computeShortestPath(next_node);
+        }
     }
 }
 
@@ -690,9 +720,14 @@ void GRAPH_SYSTEM::computeShortestPath()
     // modify and add your code heres
     //
     // reset path information of all nodes
+    resetPathInformationOfAllNodes();
     // if mStartNode == nullptr || mDestinationNode == nullptr, return
     // invokte computeShortestPath with mStartNode
     //
+    if (mStartNode == 0 || mDestinationNode == 0) { return; }
+    mStartNode->path_cost = 0;
+    mStartNode->path_parent = nullptr;
+    computeShortestPath(mStartNode);
 }
 
 void GRAPH_SYSTEM::handleKeyPressedEvent( unsigned char key )
@@ -716,7 +751,7 @@ void GRAPH_SYSTEM::handleKeyPressedEvent( unsigned char key )
         break;
     case '3':
         mFlgAutoNodeDeletion = false;
-        createNet_Square(15, 4);
+        createNet_Square(14, 6);
         mSelectedNode = 0;
 
         break;
@@ -836,7 +871,7 @@ void GRAPH_SYSTEM::update( )
     // delete the selected node?
     // delete all the edges incident to the selected node?
     //
-
+    deleteNode(mActiveNodeArr[0]);
     mSelectedNode = 0;
     mPassiveSelectedNode = 0;
 }
